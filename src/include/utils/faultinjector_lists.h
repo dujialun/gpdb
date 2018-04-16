@@ -237,6 +237,8 @@ FI_IDENT(UpgradeRowLock, "upgrade_row_lock")
 FI_IDENT(GddProbe, "gdd_probe")
 /* inject fault after updating pg_database.datfrozenxid (but before committing) */
 FI_IDENT(VacuumUpdateDatFrozenXid, "vacuum_update_dat_frozen_xid")
+/* inject fault before create resource group committing */
+FI_IDENT(CreateResourceGroupFail, "create_resource_group_fail")
 #endif
 
 /*
