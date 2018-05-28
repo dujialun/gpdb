@@ -80,6 +80,7 @@ extern double gp_resource_group_memory_limit;
  */
 extern bool gp_resource_group_enable_cgroup_memory;
 extern bool gp_resource_group_enable_cgroup_swap;
+extern bool gp_resource_group_enable_cgroup_cpuset;
 
 /*
  * Resource Group assignment hook.
