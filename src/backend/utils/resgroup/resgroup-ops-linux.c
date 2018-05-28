@@ -57,12 +57,12 @@
  * cgroup memory permission is only mandatory on 6.x and master;
  * on 5.x we need to make it optional to provide backward compatibilities.
  */
-#define CGROUP_MEMORY_IS_OPTIONAL (GP_VERSION_NUM < 60000)
+#define CGROUP_MEMORY_IS_OPTIONAL (GP_VERSION_NUM < 70000)
 /*
  * cpuset permission is only mandatory on 6.x and master;
  * on 5.x we need to make it optional to provide backward compatibilities.
  */
-#define CGROUP_CPUSET_IS_OPTIONAL (GP_VERSION_NUM < 60000)
+#define CGROUP_CPUSET_IS_OPTIONAL (GP_VERSION_NUM < 70000)
 
 typedef struct PermItem PermItem;
 typedef struct PermList PermList;
