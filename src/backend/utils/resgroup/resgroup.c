@@ -584,7 +584,7 @@ InitResGroups(void)
 		
 		if (caps.cpuRateLimit != CPU_RATE_LIMIT_DISABLED)
 		{
-			Assert(strcmp(caps.cpuset, "") == 0);
+			Assert(strcmp(caps.cpuset, DefaultCpuset) == 0);
 			ResGroupOps_SetCpuRateLimit(groupId, caps.cpuRateLimit);
 		}
 		else
@@ -596,7 +596,7 @@ InitResGroups(void)
 													   MaxCpuSetLength);
 
 				Assert(caps.cpuRateLimit == CPU_RATE_LIMIT_DISABLED);
-				Assert(strcmp(caps.cpuset, "") != 0);
+				Assert(strcmp(caps.cpuset, DefaultCpuset) != 0);
 
 				allCoreAvailable = bms_is_subset(bmsCurrent, bmsUnused);
 				if (allCoreAvailable)
@@ -3803,7 +3803,15 @@ error_logic:
  */
 bool CpusetIsEmpty(const char *cpuset)
 {
-	return strcmp(cpuset, "") == 0;
+	return strcmp(cpuset, DefaultCpuset) == 0;
+}
+
+/*
+ * Set cpuset value to default value -1.
+ */
+void SetCpusetEmpty(char *cpuset, int cpusetSize)
+{
+	strncpy(cpuset, DefaultCpuset, cpusetSize);
 }
 
 /*

@@ -364,7 +364,6 @@ DropResourceGroup(DropResourceGroupStmt *stmt)
 		callbackCtx = (ResourceGroupCallbackContext *)
 			MemoryContextAlloc(TopMemoryContext, sizeof(*callbackCtx));
 		callbackCtx->groupid = groupid;
-		//callbackCtx->caps = caps;
 		RegisterXactCallbackOnce(dropResgroupCallback, callbackCtx);
 	}
 }
@@ -409,6 +408,13 @@ AlterResourceGroup(AlterResourceGroupStmt *stmt)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("must specify cpuset when resource group is activated")));
+		}
+		else if (!gp_resource_group_enable_cgroup_cpuset)
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("cpuset is disabled for cpuset/gpdb "
+							"does not exist")));
 		}
 		cpuset = defGetString(defel);
 		checkCpusetSyntax(cpuset);
@@ -456,7 +462,7 @@ AlterResourceGroup(AlterResourceGroupStmt *stmt)
 	{
 		case RESGROUP_LIMIT_TYPE_CPU:
 			caps.cpuRateLimit = value;
-			strncpy(caps.cpuset, "", sizeof(caps.cpuset));
+			SetCpusetEmpty(caps.cpuset, sizeof(caps.cpuset));
 			break;
 		case RESGROUP_LIMIT_TYPE_MEMORY:
 			caps.memLimit = value;
@@ -501,7 +507,7 @@ AlterResourceGroup(AlterResourceGroupStmt *stmt)
 	{
 		updateResgroupCapabilityEntry(pg_resgroupcapability_rel,
 									  groupid, RESGROUP_LIMIT_TYPE_CPUSET,
-									  0, "");
+									  0, DefaultCpuset);
 		updateResgroupCapabilityEntry(pg_resgroupcapability_rel,
 									  groupid, RESGROUP_LIMIT_TYPE_CPU,
 									  value, "");
@@ -1047,7 +1053,7 @@ parseStmtOptions(CreateResourceGroupStmt *stmt, ResGroupCaps *caps)
 					break;
 				case RESGROUP_LIMIT_TYPE_CPU:
 					caps->cpuRateLimit = value;
-					caps->cpuset[0] = '\0';
+					SetCpusetEmpty(caps->cpuset, sizeof(caps->cpuset));
 					break;
 				case RESGROUP_LIMIT_TYPE_MEMORY:
 					caps->memLimit = value;
@@ -1400,7 +1406,7 @@ validateCapabilities(Relation rel,
 			if (IsResGroupActivated())
 			{
 				proposedStr = TextDatumGetCString(proposedDatum);
-				if (strcmp(proposedStr, ""))
+				if (!CpusetIsEmpty(proposedStr))
 				{
 					if (gp_resource_group_enable_cgroup_cpuset)
 					{
