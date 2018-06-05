@@ -44,6 +44,7 @@
 #include "commands/queue.h"
 #include "commands/proclang.h"
 #include "commands/resgroupcmds.h"
+#include "commands/regioncmds.h"
 #include "commands/schemacmds.h"
 #include "commands/seclabel.h"
 #include "commands/sequence.h"
@@ -1587,6 +1588,15 @@ standard_ProcessUtility(Node *parsetree,
 			break;
 
 			/*
+			 * ********************* Region statements ****
+			 */
+		case T_CreateRegionStmt:
+			if (Gp_role == GP_ROLE_DISPATCH)
+				PreventTransactionChain(isTopLevel, "CREATE REGION");
+
+			CreateRegion((CreateRegionStmt *) parsetree);
+			break;
+			/*
 			 * ******************************** ROLE statements ****
 			 */
 		case T_CreateRoleStmt:
@@ -2541,6 +2551,10 @@ CreateCommandTag(Node *parsetree)
 
 		case T_AlterResourceGroupStmt:
 			tag = "ALTER RESOURCE GROUP";
+			break;
+
+		case T_CreateRegionStmt:
+			tag = "CREATE REGION";
 			break;
 
 		case T_CreateRoleStmt:

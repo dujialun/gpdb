@@ -2218,6 +2218,18 @@ typedef struct AlterResourceGroupStmt
 	List	   *options;		/* List of DefElem nodes */
 } AlterResourceGroupStmt;
 
+/* ----------------------------------------------
+ * Create/Drop Region Statements
+ * ----------------------------------------------
+ */
+
+typedef struct CreateRegionStmt
+{
+	NodeTag		type;
+	char	   *name;			/* region name */
+	List	   *segments;		/* List of DefElem nodes */
+} CreateRegionStmt;
+
 /* ----------------------
  *	Create/Alter/Drop Role Statements
  *

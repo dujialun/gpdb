@@ -231,7 +231,7 @@ static Node *makeIsNotDistinctFromNode(Node *expr, int position);
 
 /* GPDB-specific commands */
 %type <node>	AlterTypeStmt AlterQueueStmt AlterResourceGroupStmt
-		CreateExternalStmt
+		CreateExternalStmt CreateRegionStmt
 		CreateQueueStmt CreateResourceGroupStmt
 		DropQueueStmt DropResourceGroupStmt
 		ExtTypedesc OptSingleRowErrorHandling
@@ -694,7 +694,7 @@ static Node *makeIsNotDistinctFromNode(Node *expr, int position);
 
 	QUEUE
 
-	RANDOMLY READABLE READS REJECT_P REPLICATED RESOURCE
+	RANDOMLY READABLE READS REJECT_P REGION_P REPLICATED RESOURCE
 	ROLLUP ROOTPARTITION
 
 	SCATTER SEGMENT SEGMENTS SETS SPLIT SQL SUBPARTITION
@@ -1160,6 +1160,7 @@ stmt :
 			| CreateFdwStmt
 			| CreateForeignServerStmt
 			| CreateForeignTableStmt
+			| CreateRegionStmt
 			| CreateFunctionStmt
 			| CreateGroupStmt
 			| CreateOpClassStmt
@@ -6195,6 +6196,23 @@ AlterForeignServerStmt: ALTER SERVER name foreign_server_version alter_generic_o
 					$$ = (Node *) n;
 				}
 		;
+
+
+/*****************************************************************************
+ *
+ * 		QUERY:
+ *             CREATE REGION regname with(segments=...);
+ *
+ *****************************************************************************/
+CreateRegionStmt:
+		CREATE REGION_P name WITH definition
+				{
+					CreateRegionStmt *n = makeNode(CreateRegionStmt);
+					n->name = $3;
+					n->segments = $5;
+					$$ = (Node *)n;
+				}
+	;
 
 /*****************************************************************************
  *

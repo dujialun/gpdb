@@ -47,6 +47,7 @@
 #include "catalog/pg_rewrite.h"
 #include "catalog/pg_statistic.h"
 #include "catalog/pg_trigger.h"
+#include "catalog/pg_region.h"
 
 #include "catalog/gp_configuration_history.h"
 #include "catalog/gp_segment_config.h"
@@ -531,6 +532,7 @@ IsSharedRelation(Oid relationId)
 		relationId == ResGroupCapabilityRelationId ||
 		relationId == GpConfigHistoryRelationId ||
 		relationId == GpSegmentConfigRelationId ||
+		relationId == RegionRelationId ||
 
 		relationId == AuthTimeConstraintRelationId)
 		return true;
