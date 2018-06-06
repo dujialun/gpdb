@@ -1182,6 +1182,15 @@ _outAlterResourceGroupStmt(StringInfo str, AlterResourceGroupStmt *node)
 	WRITE_NODE_FIELD(options); /* List of DefElem nodes */
 }
 
+static void
+_outCreateRegionStmt(StringInfo str, CreateRegionStmt *node)
+{
+	WRITE_NODE_TYPE("CREATEREGIONSTMT");
+
+	WRITE_STRING_FIELD(name);
+	WRITE_NODE_FIELD(segments); /* List of DefElem nodes */
+}
+
 /*
  * Support for serializing TupleDescs and ParamListInfos.
  *
@@ -2232,6 +2241,10 @@ _outNode(StringInfo str, void *obj)
 				break;
 			case T_AlterResourceGroupStmt:
 				_outAlterResourceGroupStmt(str, obj);
+				break;
+
+			case T_CreateRegionStmt:
+				_outCreateRegionStmt(str, obj);
 				break;
 
             case T_CommentStmt:

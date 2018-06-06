@@ -568,6 +568,8 @@ IsSharedRelation(Oid relationId)
 		relationId == ResQueueCapabilityRestypidIndexId ||
 		relationId == ResGroupOidIndexId ||
 		relationId == ResGroupRsgnameIndexId ||
+		relationId == RegionOidIndexId ||
+		relationId == RegionRegnameIndexId ||
 		relationId == ResGroupCapabilityOidIndexId ||
 		relationId == ResGroupCapabilityResgroupidIndexId ||
 		relationId == ResGroupCapabilityResgroupidResLimittypeIndexId ||

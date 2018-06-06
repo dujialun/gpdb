@@ -99,6 +99,7 @@
 #include "catalog/pg_partition.h"
 #include "catalog/pg_partition_rule.h"
 #include "catalog/pg_proc.h"
+#include "catalog/pg_region.h"
 #include "catalog/pg_resqueue.h"
 #include "catalog/pg_resqueuecapability.h"
 #include "catalog/pg_resgroup.h"
@@ -423,6 +424,13 @@ CreateKeyFromCatalogTuple(Relation catalogrel, HeapTuple tuple,
 
 				key.keyOid1 = usermapForm->umuser;
 				key.keyOid2 = usermapForm->umserver;
+				break;
+			}
+		case RegionRelationId:
+			{
+				Form_pg_region regForm = (Form_pg_region) GETSTRUCT(tuple);
+
+				key.objname = NameStr(regForm->regname);
 				break;
 			}
 

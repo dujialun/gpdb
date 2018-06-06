@@ -2645,6 +2645,17 @@ _readAlterResourceGroupStmt(void)
 	READ_DONE();
 }
 
+static CreateRegionStmt *
+_readCreateRegionStmt(void)
+{
+	READ_LOCALS(CreateRegionStmt);
+
+	READ_STRING_FIELD(name);
+	READ_NODE_FIELD(segments);
+
+	READ_DONE();
+}
+
 static CommentStmt *
 _readCommentStmt(void)
 {
@@ -3835,6 +3846,10 @@ readNodeBinary(void)
 				break;
 			case T_AlterResourceGroupStmt:
 				return_value = _readAlterResourceGroupStmt();
+				break;
+
+			case T_CreateRegionStmt:
+				return_value = _readCreateRegionStmt();
 				break;
 
 			case T_CommentStmt:

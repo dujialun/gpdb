@@ -364,6 +364,11 @@ DECLARE_UNIQUE_INDEX(pg_resgroupcapability_resgroupid_reslimittype_index, 6445, 
 DECLARE_INDEX(pg_resgroupcapability_resgroupid_index, 6446, on pg_resgroupcapability using btree(resgroupid oid_ops));
 #define ResGroupCapabilityResgroupidIndexId	6446
 
+//DECLARE_UNIQUE_INDEX(pg_region_oid_index, 8723, on pg_region using btree(oid oid_ops));
+#define RegionOidIndexId	8723
+//DECLARE_UNIQUE_INDEX(pg_region_regname_index, 8725, on pg_region using btree(regname name_ops));
+#define RegionRegnameIndexId	8725
+
 DECLARE_UNIQUE_INDEX(pg_partition_oid_index, 5012, on pg_partition using btree(oid oid_ops));
 #define PartitionOidIndexId	5012
 DECLARE_INDEX(pg_partition_parrelid_index, 5013, on pg_partition using btree(parrelid oid_ops));
