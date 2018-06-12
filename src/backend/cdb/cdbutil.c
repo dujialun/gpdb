@@ -259,10 +259,13 @@ getCdbComponentInfo(bool DNSLookupAsError)
 
 		getAddressesForDBid(pRow, DNSLookupAsError ? ERROR : LOG);
 
-		/* We make sure we get a valid hostip here */
-		if(pRow->hostaddrs[0] == NULL)
+		/* We make sure we get a valid hostip for primary here */
+		if (pRow->hostaddrs[0] == NULL && pRow->role == SEGMENT_ROLE_PRIMARY)
 			elog(ERROR, "Cannot resolve network address for dbid=%d", dbid);
-		pRow->hostip = pstrdup(pRow->hostaddrs[0]);
+		if (pRow->hostaddrs[0] == NULL)
+			pRow->hostip = pstrdup("");
+		else
+			pRow->hostip = pstrdup(pRow->hostaddrs[0]);
 		Assert(strlen(pRow->hostip) <= INET6_ADDRSTRLEN);
 
 		if (pRow->role != SEGMENT_ROLE_PRIMARY)
@@ -669,6 +672,9 @@ getDnsCachedAddress(char *name, int port, int elevel)
 		{
 			if (addrs)
 				pg_freeaddrinfo_all(hint.ai_family, addrs);
+
+			if (ret != EAI_FAIL && elevel == ERROR)
+				elevel = WARNING;
 
 			ereport(elevel,
 					(errmsg("could not translate host name \"%s\", port \"%d\" to address: %s",
