@@ -204,6 +204,8 @@ getaddrinfo(const char *node, const char *service,
 				{
 					case HOST_NOT_FOUND:
 					case NO_DATA:
+						if (Gp_role == GP_ROLE_DISPATCH)
+							FtsNotifyProber();
 						return EAI_NONAME;
 					case TRY_AGAIN:
 						return EAI_AGAIN;
