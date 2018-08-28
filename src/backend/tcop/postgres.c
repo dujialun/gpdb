@@ -181,6 +181,11 @@ char	   *register_stack_base_ptr = NULL;
 static volatile sig_atomic_t got_SIGHUP = false;
 
 /*
+ * Flag to mark whether GpIdentity.numsegments has been updated.
+ */
+static volatile sig_atomic_t update_Numsegments = false;
+
+/*
  * Flag to keep track of whether we have started a transaction.
  * For extended query protocol this has to be remembered across messages.
  */
@@ -5165,26 +5170,8 @@ PostgresMain(int argc, char *argv[],
 			ProcessConfigFile(PGC_SIGHUP);
 		}
 
-		/*
-		 * Although we have reloaded numsegments in ProcessConfigFile() we
-		 * still need below logic as SIGHUP might not be received in time.
-		 */
-		/* FIXME: how to check we are in a transaction or not? */
-		/* FIXME: how to let segments know the new size? */
-		if (Gp_role == GP_ROLE_DISPATCH && MyProc->lxid == InvalidOid)
-		{
-			/* TODO: how to support shrink in the future? */
-			extern uint32 FtsGetTotalSegments(void);
-
-			uint32 newnumsegments = FtsGetTotalSegments();
-
-			if (newnumsegments > GpIdentity.numsegments)
-			{
-				DisconnectAndDestroyAllGangs(false);
-
-				GpIdentity.numsegments = newnumsegments;
-			}
-		}
+		if (updateGpIdentityNumsegments())
+			DisconnectAndDestroyAllGangs(false);
 
 		/*
 		 * (6) process the command.  But ignore it if we're skipping till
