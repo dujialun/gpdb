@@ -844,6 +844,7 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 		sddesc_len +
 		sizeof(numSlices) +
 		sizeof(int) * numSlices +
+		sizeof(GpIdentity.numsegments) +
 		sizeof(resgroupInfo.len) +
 		resgroupInfo.len;
 
@@ -971,6 +972,11 @@ buildGpQueryString(DispatchCommandQueryParms *pQueryParms,
 			pos += sizeof(tmp);
 		}
 	}
+
+	/* FIXME: this could be retired with the per-table numsegments */
+	tmp = htonl(GpIdentity.numsegments);
+	memcpy(pos, &tmp, sizeof(GpIdentity.numsegments));
+	pos += sizeof(GpIdentity.numsegments);
 
 	tmp = htonl(resgroupInfo.len);
 	memcpy(pos, &tmp, sizeof(resgroupInfo.len));
