@@ -65,6 +65,7 @@
 #include "storage/smgr.h"
 #include "storage/standby.h"
 #include "utils/datum.h"
+#include "utils/gpexpand.h"
 #include "utils/inval.h"
 #include "utils/lsyscache.h"
 #include "utils/relcache.h"
@@ -2398,6 +2399,8 @@ heap_insert(Relation relation, HeapTuple tup, CommandId cid,
 	Buffer		vmbuffer = InvalidBuffer;
 	bool		all_visible_cleared = false;
 
+	gp_expand_protect_catalog_changes(relation);
+
 	/*
 	 * Fill in tuple header fields, assign an OID, and toast the tuple if
 	 * necessary.
@@ -3003,6 +3006,8 @@ heap_delete(Relation relation, ItemPointer tid,
 	Assert(ItemPointerIsValid(tid));
 	Assert(RelationIsHeap(relation));
 
+	gp_expand_protect_catalog_changes(relation);
+
 	block = ItemPointerGetBlockNumber(tid);
 	buffer = ReadBuffer(relation, block);
 	page = BufferGetPage(buffer);
@@ -3404,6 +3409,8 @@ heap_update_internal(Relation relation, ItemPointer otid, HeapTuple newtup,
 
 	Assert(ItemPointerIsValid(otid));
 	Assert(!RelationIsAppendOptimized(relation));
+
+	gp_expand_protect_catalog_changes(relation);
 
 	/*
 	 * Fetch the list of attributes to be checked for HOT update.  This is
