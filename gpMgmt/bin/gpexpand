@@ -610,7 +610,7 @@ class GpExpandStatus():
         return os.path.exists(self._master_data_directory + self._status_standby_filename)
 
     def can_rollback(self, status):
-        """Return if it rollback under current status"""
+        """Return if it can rollback under current status"""
         if int(self._status_values[status]) > int(self._status_values['UPDATE_CATALOG_DONE']):
             return False
         return True
