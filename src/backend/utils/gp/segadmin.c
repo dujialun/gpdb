@@ -26,6 +26,7 @@
 #include "cdb/cdbvars.h"
 #include "cdb/cdbfts.h"
 #include "postmaster/startup.h"
+#include "postmaster/postmaster.h"
 #include "utils/builtins.h"
 #include "utils/fmgroids.h"
 
@@ -272,6 +273,8 @@ add_segment_config(seginfo *i)
 		CharGetDatum(i->db.status);
 	values[Anum_gp_segment_configuration_port - 1] =
 		Int32GetDatum(i->db.port);
+	values[Anum_gp_segment_configuration_master_prober - 1] =
+		BoolGetDatum(i->db.isMasterProber);
 	values[Anum_gp_segment_configuration_hostname - 1] =
 		CStringGetTextDatum(i->db.hostname);
 	values[Anum_gp_segment_configuration_address - 1] =
@@ -412,6 +415,7 @@ gp_add_segment_primary(PG_FUNCTION_ARGS)
 	new.db.preferred_role = GP_SEGMENT_CONFIGURATION_ROLE_PRIMARY;
 	new.db.mode = GP_SEGMENT_CONFIGURATION_MODE_NOTINSYNC;
 	new.db.status = GP_SEGMENT_CONFIGURATION_STATUS_UP;
+	new.db.isMasterProber = false;
 
 	add_segment(new);
 
@@ -461,16 +465,20 @@ gp_add_segment(PG_FUNCTION_ARGS)
 	new.db.port = PG_GETARG_INT32(6);
 
 	if (PG_ARGISNULL(7))
-		elog(ERROR, "hostname cannot be NULL");
-	new.db.hostname = TextDatumGetCString(PG_GETARG_DATUM(7));
+		elog(ERROR, "isMasterProber cannot be NULL");
+	new.db.isMasterProber = PG_GETARG_BOOL(7);
 
 	if (PG_ARGISNULL(8))
-		elog(ERROR, "address cannot be NULL");
-	new.db.address = TextDatumGetCString(PG_GETARG_DATUM(8));
+		elog(ERROR, "hostname cannot be NULL");
+	new.db.hostname = TextDatumGetCString(PG_GETARG_DATUM(8));
 
 	if (PG_ARGISNULL(9))
+		elog(ERROR, "address cannot be NULL");
+	new.db.address = TextDatumGetCString(PG_GETARG_DATUM(9));
+
+	if (PG_ARGISNULL(10))
 		elog(ERROR, "datadir cannot be NULL");
-	new.db.datadir = TextDatumGetCString(PG_GETARG_DATUM(9));
+	new.db.datadir = TextDatumGetCString(PG_GETARG_DATUM(10));
 
 	mirroring_sanity_check(MASTER_ONLY | SUPERUSER, "gp_add_segment");
 
@@ -561,6 +569,7 @@ gp_add_segment_mirror(PG_FUNCTION_ARGS)
 	new.db.status = GP_SEGMENT_CONFIGURATION_STATUS_DOWN;
 	new.db.role = GP_SEGMENT_CONFIGURATION_ROLE_MIRROR;
 	new.db.preferred_role = GP_SEGMENT_CONFIGURATION_ROLE_MIRROR;
+	new.db.isMasterProber = false;
 
 	add_segment(new);
 
@@ -679,6 +688,7 @@ gp_add_master_standby(PG_FUNCTION_ARGS)
 	new.db.preferred_role = GP_SEGMENT_CONFIGURATION_ROLE_MIRROR;
 	new.db.mode = GP_SEGMENT_CONFIGURATION_MODE_INSYNC;
 	new.db.status = GP_SEGMENT_CONFIGURATION_STATUS_UP;
+	new.db.isMasterProber = false;
 
 	new.db.hostname = TextDatumGetCString(PG_GETARG_TEXT_P(0));
 
@@ -838,14 +848,17 @@ gp_activate_standby(void)
 Datum
 gp_request_fts_probe_scan(PG_FUNCTION_ARGS)
 {
-	if (Gp_role != GP_ROLE_DISPATCH)
+	if (Gp_role == GP_ROLE_DISPATCH ||
+		(Gp_role == GP_ROLE_UTILITY && !IS_QUERY_DISPATCHER() && shmFtsControl->ftsPid != 0))
 	{
-		ereport(ERROR,
-				(errmsg("this function can only be called by master (without utility mode)")));
+		FtsNotifyProber();
+
+		PG_RETURN_BOOL(true);
+	}
+	else
+	{
+		ereport(ERROR, (errmsg("This function can only be called by master (without utility mode) "
+							   "or master prober segment.")));
 		PG_RETURN_BOOL(false);
 	}
-
-	FtsNotifyProber();
-
-	PG_RETURN_BOOL(true);
 }

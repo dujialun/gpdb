@@ -722,7 +722,9 @@ class GpStart:
         try:
             self.dburl.retries = 4
             self.dburl.timeout = 15
-            masterconn = dbconn.connect(self.dburl)
+            # hasn't start standby yet, transactions might be blocked due to sync replication.
+            # set verbose=True to avoid new transaction in this connection. 
+            masterconn = dbconn.connect(self.dburl, verbose=True)
             masterconn.close()
 
         except Exception, e:

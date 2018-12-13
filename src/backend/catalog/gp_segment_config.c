@@ -14,10 +14,11 @@
 #include "utils/tqual.h"
 
 /*
- * Tell the caller whether any segment mirrors exist.
+ * Tell the caller whether any segment mirrors exist if segmentHasMirror is true.
+ * Tell the caller whether any standby master exist if segmentHasMirror is false.
  */
 bool
-gp_segment_config_has_mirrors()
+gp_segment_config_has_mirrors(bool segmentHasMirror)
 {
 	bool mirrors_exist;
 	Relation rel;
@@ -31,17 +32,28 @@ gp_segment_config_has_mirrors()
 	 * SELECT dbid FROM gp_segment_configuration
 	 * WHERE content != :1 AND role = :2
 	 */
-	ScanKeyInit(&scankey[0],
+	if (segmentHasMirror)
+		ScanKeyInit(&scankey[0],
 				Anum_gp_segment_configuration_content,
 				BTEqualStrategyNumber, F_INT2NE,
 				Int16GetDatum(MASTER_CONTENT_ID));
+	else
+	/*
+	 * SELECT dbid FROM gp_segment_configuration
+	 * WHERE content = :1 AND role = :2
+	 */
+		ScanKeyInit(&scankey[0],
+				Anum_gp_segment_configuration_content,
+				BTEqualStrategyNumber, F_INT2EQ,
+				Int16GetDatum(MASTER_CONTENT_ID));
+
 	ScanKeyInit(&scankey[1],
-				Anum_gp_segment_configuration_role,
-				BTEqualStrategyNumber, F_CHAREQ,
-				CharGetDatum('m'));
+			Anum_gp_segment_configuration_role,
+			BTEqualStrategyNumber, F_CHAREQ,
+			CharGetDatum('m'));
 
 	scan = systable_beginscan(rel, InvalidOid, false,
-							  NULL, 2, scankey);
+			NULL, 2, scankey);
 
 	tuple = systable_getnext(scan);
 	mirrors_exist = HeapTupleIsValid(tuple);
