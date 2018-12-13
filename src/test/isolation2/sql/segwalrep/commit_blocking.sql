@@ -13,9 +13,12 @@ create table segwalrep_commit_blocking (a int) distributed by (a);
 insert into segwalrep_commit_blocking values (1);
 
 -- skip FTS probes always
-create extension if not exists gp_inject_fault;
-select gp_inject_fault('fts_probe', 'reset', 1);
-select gp_inject_fault_infinite('fts_probe', 'skip', 1);
+select gp_inject_fault('fts_probe', 'reset', dbid)
+    from gp_segment_configuration
+    where content = -1 and role = 'p';
+select gp_inject_fault_infinite('fts_probe', 'skip', dbid)
+    from gp_segment_configuration
+    where content = -1 and role = 'p';
 -- force scan to trigger the fault
 select gp_request_fts_probe_scan();
 -- verify the failure should be triggered once
@@ -53,7 +56,9 @@ select gp_wait_until_triggered_fault('fts_probe', 1, 1);
 3<:
 
 -- resume FTS probes
-select gp_inject_fault('fts_probe', 'reset', 1);
+select gp_inject_fault('fts_probe', 'reset', dbid)
+    from gp_segment_configuration
+    where content = -1 and role = 'p';
 
 -- everything should be back to normal
 4: insert into segwalrep_commit_blocking select i from generate_series(1,10)i;
@@ -64,6 +69,17 @@ alter system set synchronous_standby_names to '*';
 
 -- reload to make synchronous_standby_names effective
 -1U: select pg_ctl((select datadir from gp_segment_configuration c where c.role='p' and c.content=-1), 'reload', NULL, NULL, NULL);
+
+-----------------------------------------------------------------
+-- Master commit blocking
+--
+-----------------------------------------------------------------
+5: select gp_inject_fault('fts_probe', 'reset', dbid)
+    from gp_segment_configuration
+    where master_prober = true;
+5: select gp_inject_fault_infinite('fts_probe', 'skip', dbid)
+    from gp_segment_configuration
+    where master_prober = true;
 
 -- create table and show commits are not blocked
 2: create table standbywalrep_commit_blocking (a int) distributed by (a);
@@ -104,3 +120,8 @@ alter system set synchronous_standby_names to '';
 
 -- reload to make synchronous_standby_names effective
 -1U: select pg_ctl((select datadir from gp_segment_configuration c where c.role='p' and c.content=-1), 'reload', NULL, NULL, NULL);
+
+-- resume FTS probes
+5: select gp_inject_fault('fts_probe', 'reset', dbid)
+    from gp_segment_configuration
+    where master_prober = true;

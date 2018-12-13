@@ -137,6 +137,9 @@ test: segwalrep/fts_unblock_primary
 test: segwalrep/mirror_promotion
 test: segwalrep/cancel_commit_pending_replication
 test: segwalrep/twophase_tolerance_with_mirror_promotion
+test: segwalrep/fts_unblock_master
+test: segwalrep/standby_promotion
+test: segwalrep/master_prober_selection
 
 # Tests for crash recovery
 test: crash_recovery
