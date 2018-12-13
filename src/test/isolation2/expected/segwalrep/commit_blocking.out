@@ -7,6 +7,13 @@ CREATE
 
 create or replace function pg_ctl(datadir text, command text, port int, contentid int, dbid int) returns text as $$ import subprocess cmd = 'pg_ctl -l postmaster.log -D %s ' % datadir if command in ('stop', 'restart'): cmd = cmd + '-w -m immediate %s' % command elif command == 'start': opts = '-p %d -\-gp_dbid=%d -i -\-gp_contentid=%d -\-gp_num_contents_in_cluster=3' % (port, dbid, contentid) cmd = cmd + '-o "%s" start' % opts elif command == 'reload': cmd = cmd + command else: return 'Invalid command input' return subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True).replace('.', '') $$ language plpythonu;
 CREATE
+create extension if not exists gp_inject_fault;
+CREATE
+
+-----------------------------------------------------------------
+-- Segment commit blocking
+--
+-----------------------------------------------------------------
 
 -- make sure we are in-sync for the primary we will be testing with
 select content, role, preferred_role, mode, status from gp_segment_configuration;
@@ -36,14 +43,12 @@ insert into segwalrep_commit_blocking values (1);
 INSERT 1
 
 -- skip FTS probes always
-create extension if not exists gp_inject_fault;
-CREATE
-select gp_inject_fault('fts_probe', 'reset', 1);
+select gp_inject_fault('fts_probe', 'reset', dbid) from gp_segment_configuration where content = -1 and role = 'p';
 gp_inject_fault
 ---------------
 t              
 (1 row)
-select gp_inject_fault_infinite('fts_probe', 'skip', 1);
+select gp_inject_fault_infinite('fts_probe', 'skip', dbid) from gp_segment_configuration where content = -1 and role = 'p';
 gp_inject_fault_infinite
 ------------------------
 t                       
@@ -123,7 +128,7 @@ server starting
 COMMIT
 
 -- resume FTS probes
-select gp_inject_fault('fts_probe', 'reset', 1);
+select gp_inject_fault('fts_probe', 'reset', dbid) from gp_segment_configuration where content = -1 and role = 'p';
 gp_inject_fault
 ---------------
 t              
@@ -161,6 +166,21 @@ pg_ctl
 ----------------
 server signaled
 
+(1 row)
+
+-----------------------------------------------------------------
+-- Master commit blocking
+--
+-----------------------------------------------------------------
+5: select gp_inject_fault('fts_probe', 'reset', dbid) from gp_segment_configuration where master_prober = true;
+gp_inject_fault
+---------------
+t              
+(1 row)
+5: select gp_inject_fault_infinite('fts_probe', 'skip', dbid) from gp_segment_configuration where master_prober = true;
+gp_inject_fault_infinite
+------------------------
+t                       
 (1 row)
 
 -- create table and show commits are not blocked
@@ -251,4 +271,11 @@ pg_ctl
 ----------------
 server signaled
 
+(1 row)
+
+-- resume FTS probes
+5: select gp_inject_fault('fts_probe', 'reset', dbid) from gp_segment_configuration where master_prober = true;
+gp_inject_fault
+---------------
+t              
 (1 row)
