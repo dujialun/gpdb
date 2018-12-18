@@ -1200,10 +1200,10 @@ FtsIsSegmentAlive(CdbComponentDatabaseInfo *segInfo)
  * cdbs.
  */
 static void
-FtsWalRepInitProbeContext(CdbComponentDatabases *cdbs, fts_context *context)
+FtsWalRepInitProbeContext(CdbComponentDatabases *cdbs, fts_context *context, bool masterProber)
 {
 	int array_size = 0;
-	if (amMasterProber())
+	if (masterProber)
 	{
 		Assert(cdbs->total_entry_dbs == 2);
 		array_size = cdbs->total_entry_dbs;
@@ -1224,7 +1224,7 @@ FtsWalRepInitProbeContext(CdbComponentDatabases *cdbs, fts_context *context)
 	{
 		CdbComponentDatabaseInfo *primary = NULL;
 		CdbComponentDatabaseInfo *mirror = NULL;
-		if (amMasterProber())
+		if (masterProber)
 		{
 			/* entry_db_info is sorted by isprimary */
 			primary = &(cdbs->entry_db_info[0]);
@@ -1291,7 +1291,7 @@ FtsWalRepMessageSegments(CdbComponentDatabases *cdbs, bool *masterProberStarted)
 	bool is_updated = false;
 	fts_context context;
 
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, amMasterProber());
 	InitPollFds(context.num_pairs);
 
 	while (!allDone(&context) && FtsIsActive())

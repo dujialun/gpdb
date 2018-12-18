@@ -208,7 +208,7 @@ test_ftsConnect_FTS_PROBE_SEGMENT(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		1, true, GP_SEGMENT_CONFIGURATION_MODE_INSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	char primary_conninfo[1024];
 	fts_segment_info *ftsInfo = &context.perSegInfos[0];
 
@@ -243,7 +243,7 @@ test_ftsConnect_one_failure_one_success(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		2, true, GP_SEGMENT_CONFIGURATION_MODE_INSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_PROBE_SEGMENT);
 	fts_segment_info *success_resp = &context.perSegInfos[0];
 	success_resp->conn->status = CONNECTION_STARTED;
@@ -293,7 +293,7 @@ test_ftsConnect_ftsPoll(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		1, true, GP_SEGMENT_CONFIGURATION_MODE_INSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	context.perSegInfos[0].state = FTS_PROBE_SEGMENT;
 
 	InitPollFds(1);
@@ -345,7 +345,7 @@ test_ftsSend_success(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		1, true, GP_SEGMENT_CONFIGURATION_MODE_INSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_PROBE_SEGMENT);
 	fts_segment_info *ftsInfo = &context.perSegInfos[0];
 	ftsInfo->conn->asyncStatus = PGASYNC_IDLE;
@@ -370,7 +370,7 @@ test_ftsReceive_success(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		1, true, GP_SEGMENT_CONFIGURATION_MODE_INSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_PROBE_SEGMENT);
 
 	static int true_value = 1;
@@ -428,6 +428,10 @@ test_ftsReceive_success(void **state)
 	expect_value(PQgetvalue, tup_num, 0);
 	expect_value(PQgetvalue, field_num, Anum_fts_message_response_request_retry);
 	will_return(PQgetvalue, &false_value);
+	expect_value(PQgetvalue, res, ftsInfo->conn->result);
+	expect_value(PQgetvalue, tup_num, 0);
+	expect_value(PQgetvalue, field_num, Anum_fts_message_response_master_prober_started);
+	will_return(PQgetvalue, &false_value);
 
 	ftsReceive(&context);
 
@@ -452,7 +456,7 @@ test_ftsReceive_when_fts_handler_FATAL(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		1, true, GP_SEGMENT_CONFIGURATION_MODE_INSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_PROBE_SEGMENT);
 	fts_segment_info *ftsInfo = &context.perSegInfos[0];
 
@@ -485,7 +489,7 @@ test_ftsReceive_when_fts_handler_ERROR(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		1, true, GP_SEGMENT_CONFIGURATION_MODE_INSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	/*
 	 * As long as it is one of the states in which an FTS message can be sent
 	 * and a response be received, the state doesn't matter.  Here we chose
@@ -542,7 +546,7 @@ test_processRetry_wait_before_retry(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		2, true, GP_SEGMENT_CONFIGURATION_MODE_INSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_SYNCREP_OFF_FAILED);
 
 	/* First primary sent a response with requestRetry set. */
@@ -622,7 +626,7 @@ test_processResponse_for_FtsIsActive_false(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		1, true, GP_SEGMENT_CONFIGURATION_MODE_INSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_PROBE_SUCCESS);
 	context.perSegInfos[0].result.isPrimaryAlive = true;
 	context.perSegInfos[0].result.isMirrorAlive = true;
@@ -647,7 +651,7 @@ test_PrimayUpMirrorUpNotInSync_to_PrimayUpMirrorUpNotInSync(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		2, true, GP_SEGMENT_CONFIGURATION_MODE_NOTINSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_PROBE_SUCCESS);
 
 	will_return_count(FtsIsActive, true, 2);
@@ -685,7 +689,7 @@ test_PrimayUpMirrorUpNotInSync_to_PrimaryDown(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		2, true, GP_SEGMENT_CONFIGURATION_MODE_NOTINSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_PROBE_SUCCESS);
 
 	will_return_count(FtsIsActive, true, 2);
@@ -722,7 +726,7 @@ test_PrimayUpMirrorUpNotInSync_to_PrimaryUpMirrorDownNotInSync(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		2, true, GP_SEGMENT_CONFIGURATION_MODE_NOTINSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_PROBE_SUCCESS);
 
 	will_return_count(FtsIsActive, true, 2);
@@ -775,7 +779,7 @@ test_PrimaryUpMirrorDownNotInSync_to_PrimayUpMirrorUpNotInSync(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		3, true, GP_SEGMENT_CONFIGURATION_MODE_NOTINSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_PROBE_SUCCESS);
 
 	will_return_count(FtsIsActive, true, 3);
@@ -850,7 +854,7 @@ test_processResponse_multiple_segments(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		5, true, GP_SEGMENT_CONFIGURATION_MODE_NOTINSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_PROBE_SUCCESS);
 
 	will_return_count(FtsIsActive, true, 5);
@@ -979,7 +983,7 @@ test_PrimayUpMirrorUpSync_to_PrimaryUpMirrorUpNotInSync(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		1, true, GP_SEGMENT_CONFIGURATION_MODE_INSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_PROBE_SUCCESS);
 
 	will_return(FtsIsActive, true);
@@ -1025,7 +1029,7 @@ test_PrimayUpMirrorUpSync_to_PrimaryUpMirrorDownNotInSync(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		2, true, GP_SEGMENT_CONFIGURATION_MODE_INSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_PROBE_SUCCESS);
 
 	will_return_count(FtsIsActive, true, 2);
@@ -1084,7 +1088,7 @@ test_PrimayUpMirrorUpSync_to_PrimaryDown_to_MirrorPromote(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		1, true, GP_SEGMENT_CONFIGURATION_MODE_INSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_PROBE_SUCCESS);
 
 	will_return(FtsIsActive, true);
@@ -1132,7 +1136,7 @@ test_PrimayUpMirrorUpNotInSync_to_PrimayUpMirrorUpSync(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		1, true, GP_SEGMENT_CONFIGURATION_MODE_NOTINSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_PROBE_SUCCESS);
 
 	will_return(FtsIsActive, true);
@@ -1178,7 +1182,7 @@ test_PrimaryUpMirrorDownNotInSync_to_PrimayUpMirrorUpSync(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		1, true, GP_SEGMENT_CONFIGURATION_MODE_NOTINSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_PROBE_SUCCESS);
 
 	will_return(FtsIsActive, true);
@@ -1230,7 +1234,7 @@ test_PrimaryUpMirrorDownNotInSync_to_PrimayUpMirrorDownNotInSync(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		1, true, GP_SEGMENT_CONFIGURATION_MODE_NOTINSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_PROBE_SUCCESS);
 
 	will_return(FtsIsActive, true);
@@ -1267,7 +1271,7 @@ test_PrimaryUpMirrorDownNotInSync_to_PrimaryDown(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		2, true, GP_SEGMENT_CONFIGURATION_MODE_NOTINSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_PROBE_SUCCESS);
 
 	will_return_count(FtsIsActive, true, 2);
@@ -1312,7 +1316,7 @@ test_probeTimeout(void **state)
 	CdbComponentDatabases *cdbs = InitTestCdb(
 		1, true, GP_SEGMENT_CONFIGURATION_MODE_NOTINSYNC);
 	fts_context context;
-	FtsWalRepInitProbeContext(cdbs, &context);
+	FtsWalRepInitProbeContext(cdbs, &context, false);
 	init_fts_context(&context, FTS_PROBE_SEGMENT);
 
 	pg_time_t now = (pg_time_t) time(NULL);
@@ -1338,7 +1342,7 @@ test_FtsWalRepInitProbeContext_initial_state(void **state)
 									true,
 									GP_SEGMENT_CONFIGURATION_MODE_NOTINSYNC);
 
-	FtsWalRepInitProbeContext(cdb_component_dbs, &context);
+	FtsWalRepInitProbeContext(cdb_component_dbs, &context, false);
 
 	int i;
 	for (i=0; i < context.num_pairs; i++)
