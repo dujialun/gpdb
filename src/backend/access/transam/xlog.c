@@ -45,6 +45,7 @@
 #include "replication/snapbuild.h"
 #include "replication/walreceiver.h"
 #include "replication/walsender.h"
+#include "replication/gp_replication.h"
 #include "storage/barrier.h"
 #include "storage/bufmgr.h"
 #include "storage/fd.h"
@@ -6066,6 +6067,7 @@ UpdateCatalogForStandbyPromotion(void)
 	/* I am privileged */
 	InitializeSessionUserIdStandalone();
 	gp_activate_standby();
+	UnsetSyncStandbysDefined();
 	/* close the transaction we started above */
 	CommitTransactionCommand();
 	Gp_role = old_role;

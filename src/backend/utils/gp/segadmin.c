@@ -25,7 +25,9 @@
 #include "cdb/cdbutil.h"
 #include "cdb/cdbvars.h"
 #include "cdb/cdbfts.h"
+#include "postmaster/fts.h"
 #include "postmaster/startup.h"
+#include "postmaster/postmaster.h"
 #include "utils/builtins.h"
 #include "utils/fmgroids.h"
 
@@ -272,6 +274,8 @@ add_segment_config(seginfo *i)
 		CharGetDatum(i->db.status);
 	values[Anum_gp_segment_configuration_port - 1] =
 		Int32GetDatum(i->db.port);
+	values[Anum_gp_segment_configuration_master_prober - 1] =
+		BoolGetDatum(i->db.isMasterProber);
 	values[Anum_gp_segment_configuration_hostname - 1] =
 		CStringGetTextDatum(i->db.hostname);
 	values[Anum_gp_segment_configuration_address - 1] =
@@ -412,6 +416,7 @@ gp_add_segment_primary(PG_FUNCTION_ARGS)
 	new.db.preferred_role = GP_SEGMENT_CONFIGURATION_ROLE_PRIMARY;
 	new.db.mode = GP_SEGMENT_CONFIGURATION_MODE_NOTINSYNC;
 	new.db.status = GP_SEGMENT_CONFIGURATION_STATUS_UP;
+	new.db.isMasterProber = false;
 
 	add_segment(new);
 
@@ -461,16 +466,20 @@ gp_add_segment(PG_FUNCTION_ARGS)
 	new.db.port = PG_GETARG_INT32(6);
 
 	if (PG_ARGISNULL(7))
-		elog(ERROR, "hostname cannot be NULL");
-	new.db.hostname = TextDatumGetCString(PG_GETARG_DATUM(7));
+		elog(ERROR, "isMasterProber cannot be NULL");
+	new.db.isMasterProber = PG_GETARG_BOOL(7);
 
 	if (PG_ARGISNULL(8))
-		elog(ERROR, "address cannot be NULL");
-	new.db.address = TextDatumGetCString(PG_GETARG_DATUM(8));
+		elog(ERROR, "hostname cannot be NULL");
+	new.db.hostname = TextDatumGetCString(PG_GETARG_DATUM(8));
 
 	if (PG_ARGISNULL(9))
+		elog(ERROR, "address cannot be NULL");
+	new.db.address = TextDatumGetCString(PG_GETARG_DATUM(9));
+
+	if (PG_ARGISNULL(10))
 		elog(ERROR, "datadir cannot be NULL");
-	new.db.datadir = TextDatumGetCString(PG_GETARG_DATUM(9));
+	new.db.datadir = TextDatumGetCString(PG_GETARG_DATUM(10));
 
 	mirroring_sanity_check(MASTER_ONLY | SUPERUSER, "gp_add_segment");
 
@@ -561,6 +570,7 @@ gp_add_segment_mirror(PG_FUNCTION_ARGS)
 	new.db.status = GP_SEGMENT_CONFIGURATION_STATUS_DOWN;
 	new.db.role = GP_SEGMENT_CONFIGURATION_ROLE_MIRROR;
 	new.db.preferred_role = GP_SEGMENT_CONFIGURATION_ROLE_MIRROR;
+	new.db.isMasterProber = false;
 
 	add_segment(new);
 
@@ -679,6 +689,7 @@ gp_add_master_standby(PG_FUNCTION_ARGS)
 	new.db.preferred_role = GP_SEGMENT_CONFIGURATION_ROLE_MIRROR;
 	new.db.mode = GP_SEGMENT_CONFIGURATION_MODE_INSYNC;
 	new.db.status = GP_SEGMENT_CONFIGURATION_STATUS_UP;
+	new.db.isMasterProber = false;
 
 	new.db.hostname = TextDatumGetCString(PG_GETARG_TEXT_P(0));
 
@@ -721,68 +732,6 @@ gp_remove_master_standby(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(true);
 }
 
-static void
-segment_config_activate_standby(int16 standbydbid, int16 newdbid)
-{
-	/* we use AccessExclusiveLock to prevent races */
-	Relation	rel = heap_open(GpSegmentConfigRelationId, AccessExclusiveLock);
-	HeapTuple	tuple;
-	ScanKeyData scankey;
-	SysScanDesc sscan;
-	int			numDel = 0;
-
-	/* first, delete the old master */
-	ScanKeyInit(&scankey,
-				Anum_gp_segment_configuration_dbid,
-				BTEqualStrategyNumber, F_INT2EQ,
-				Int16GetDatum(newdbid));
-	sscan = systable_beginscan(rel, GpSegmentConfigDbidIndexId, true,
-							   NULL, 1, &scankey);
-	while ((tuple = systable_getnext(sscan)) != NULL)
-	{
-		simple_heap_delete(rel, &tuple->t_self);
-		numDel++;
-	}
-	systable_endscan(sscan);
-
-	if (0 == numDel)
-		elog(ERROR, "cannot find old master, dbid %i", newdbid);
-
-	/* now, set out old dbid to the new dbid */
-	ScanKeyInit(&scankey,
-				Anum_gp_segment_configuration_dbid,
-				BTEqualStrategyNumber, F_INT2EQ,
-				Int16GetDatum(standbydbid));
-	sscan = systable_beginscan(rel, GpSegmentConfigDbidIndexId, true,
-							   NULL, 1, &scankey);
-
-	tuple = systable_getnext(sscan);
-
-	if (!HeapTupleIsValid(tuple))
-		elog(ERROR, "cannot find standby, dbid %i", standbydbid);
-
-	tuple = heap_copytuple(tuple);
-	((Form_gp_segment_configuration) GETSTRUCT(tuple))->role = GP_SEGMENT_CONFIGURATION_ROLE_PRIMARY;
-	((Form_gp_segment_configuration) GETSTRUCT(tuple))->preferred_role = GP_SEGMENT_CONFIGURATION_ROLE_PRIMARY;
-
-	simple_heap_update(rel, &tuple->t_self, tuple);
-	CatalogUpdateIndexes(rel, tuple);
-
-	systable_endscan(sscan);
-
-	heap_close(rel, NoLock);
-}
-
-/*
- * Update gp_segment_configuration to activate a standby.
- * This means deleting references to the old standby.
- */
-static void
-catalog_activate_standby(int16 standbydbid, int16 olddbid)
-{
-	segment_config_activate_standby(standbydbid, olddbid);
-}
-
 /*
  * Activate a standby. To do this, we need to change
  *
@@ -804,10 +753,10 @@ catalog_activate_standby(int16 standbydbid, int16 olddbid)
 bool
 gp_activate_standby(void)
 {
-	int16		olddbid = GpIdentity.dbid;
-	int16		newdbid;
+	int16		mydbid = GpIdentity.dbid;
+	int16		masterdbid;
 
-	newdbid = contentid_get_dbid(MASTER_CONTENT_ID, GP_SEGMENT_CONFIGURATION_ROLE_PRIMARY, true);
+	masterdbid = contentid_get_dbid(MASTER_CONTENT_ID, GP_SEGMENT_CONFIGURATION_ROLE_PRIMARY, true);
 
 	/*
 	 * This call comes from Startup process post checking state in pg_control
@@ -817,7 +766,7 @@ gp_activate_standby(void)
 	 * for StartUp Process, to cover for case of crash after updating the
 	 * catalogs during promote.
 	 */
-	if (am_startup && (newdbid == olddbid))
+	if (am_startup && (masterdbid == mydbid))
 	{
 		/*
 		 * Job is already done, nothing needs to be done. We mostly crashed
@@ -829,7 +778,8 @@ gp_activate_standby(void)
 	mirroring_sanity_check(SUPERUSER | UTILITY_MODE | STANDBY_ONLY,
 						   PG_FUNCNAME_MACRO);
 
-	catalog_activate_standby(olddbid, newdbid);
+	probeWalRepUpdateConfig(masterdbid, -1, 'm', false, false);
+	probeWalRepUpdateConfig(mydbid, -1, 'p', true, false);
 
 	/* done */
 	return true;
@@ -838,14 +788,17 @@ gp_activate_standby(void)
 Datum
 gp_request_fts_probe_scan(PG_FUNCTION_ARGS)
 {
-	if (Gp_role != GP_ROLE_DISPATCH)
+	if (Gp_role == GP_ROLE_DISPATCH ||
+		(Gp_role == GP_ROLE_UTILITY && !IS_QUERY_DISPATCHER() && shmFtsControl->ftsPid != 0))
 	{
-		ereport(ERROR,
-				(errmsg("this function can only be called by master (without utility mode)")));
+		FtsNotifyProber();
+
+		PG_RETURN_BOOL(true);
+	}
+	else
+	{
+		ereport(ERROR, (errmsg("This function can only be called by master (without utility mode) "
+							   "or master prober segment.")));
 		PG_RETURN_BOOL(false);
 	}
-
-	FtsNotifyProber();
-
-	PG_RETURN_BOOL(true);
 }

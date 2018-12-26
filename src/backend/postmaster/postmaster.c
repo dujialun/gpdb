@@ -1661,6 +1661,8 @@ ServiceStartable(PMSubProc *subProc)
 		result = 0;
 	else if (subProc->procType == PerfmonSegmentInfoProc && !gp_enable_gpperfmon && !gp_enable_query_metrics)
 		result = 0;
+	else if (subProc->procType == FtsProbeProc && !IS_QUERY_DISPATCHER())
+		result = shouldStartMasterProber();
 	else
 		result = ((subProc->flags & flagNeeded) != 0);
 
@@ -2057,7 +2059,6 @@ ResetMirrorReadyFlag(void)
 	pm_launch_walreceiver = false;
 }
 
-
 /*
  * Read a client's startup packet and do something according to it.
  *
@@ -2261,10 +2262,6 @@ retry1:
 			{
 				if (strcmp(valptr, GPCONN_TYPE_FTS) == 0)
 				{
-					if (IS_QUERY_DISPATCHER())
-						ereport(FATAL,
-								(errcode(ERRCODE_PROTOCOL_VIOLATION),
-								 errmsg("cannot handle FTS connection on master")));
 					am_ftshandler = true;
 					am_mirror = IsRoleMirror();
 
@@ -5546,6 +5543,17 @@ sigusr1_handler(SIGNAL_ARGS)
 	if (CheckPostmasterSignal(PMSIGNAL_WAKEN_FTS) && FTSSubProc->pid != 0)
 	{
 		signal_child(FTSSubProc->pid, SIGINT);
+	}
+
+	if (CheckPostmasterSignal(PMSIGNAL_START_MASTER_PROBER) &&
+		FTSSubProc->pid == 0 &&
+		StartupPID == 0 &&
+		pmState > PM_STARTUP &&
+		!FatalError &&
+		Shutdown == NoShutdown &&
+		ServiceStartable(FTSSubProc))
+	{
+		FTSSubProc->pid = (FTSSubProc->serverStart)();
 	}
 
 	if (CheckPostmasterSignal(PMSIGNAL_ADVANCE_STATE_MACHINE) &&
