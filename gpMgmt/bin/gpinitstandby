@@ -273,7 +273,7 @@ def delete_standby(options):
 
     # Disable Ctrl-C
     signal.signal(signal.SIGINT,signal.SIG_IGN)
-    
+
     # If the standby is down, and the synchronous_standby_names is *, the cluster will not start
     # set synchronous_standby_names to ''
     cmd = gp.GpAddConfigScript('master',
