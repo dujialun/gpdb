@@ -188,23 +188,6 @@ Feature: expand the cluster by adding more segments
         When the user runs gpexpand against database "gptest" to redistribute
         Then distribution information from table "public.redistribute" with data in "gptest" is verified against saved data
 
-    @gpexpand_icw_db_concourse
-    Scenario: Use a dump of the ICW database for expansion
-        Given a working directory of the test as '/data/gpdata/gpexpand'
-        And the database is killed on hosts "mdw,sdw1,sdw2,sdw3"
-        And a temporary directory under "/data/gpdata/gpexpand/expandedData" to expand into
-        And the database is not running
-        And a cluster is created with mirrors on "mdw" and "sdw1"
-        And database "gptest" exists
-        And the user runs psql with "-f /home/gpadmin/sqldump/dump.sql" against database "gptest"
-        And there are no gpexpand_inputfiles
-        And the cluster is setup for an expansion on hosts "mdw,sdw1,sdw2,sdw3"
-        And the new host "sdw2,sdw3" is ready to go
-        And the user runs gpexpand interview to add 1 new segment and 2 new host "sdw2,sdw3"
-        And the number of segments have been saved
-        When the user runs gpexpand with the latest gpexpand_inputfile with additional parameters "--silent"
-        And verify that the cluster has 14 new segments
-
     @gpexpand_no_mirrors
     @gpexpand_no_restart
     @gpexpand_catalog_copied
