@@ -36,6 +36,7 @@ try:
     from gppylib.parseutils import line_reader, parse_gpexpand_segment_line, \
         canonicalize_address
     from gppylib.heapchecksum import HeapChecksum
+    from gppylib.commands.pg import PgBaseBackup
 
 except ImportError, e:
     sys.exit('ERROR: Cannot import modules.  Please check that you have sourced greenplum_path.sh.  Detail: ' + str(e))
@@ -639,7 +640,14 @@ class SegmentTemplate:
 
         try:
             masterSeg = self.gparray.master
-            masterSeg.createTemplate(dstDir=self.tempDir)
+            cmd = PgBaseBackup(pgdata=self.tempDir,
+                               host=masterSeg.getSegmentHostName(),
+                               port=str(masterSeg.getSegmentPort()),
+                               forceoverwrite=True,
+                               recovery_mode=False,
+                               target_gp_dbid=masterSeg.getSegmentDbId())
+            cmd.run(validateAfter=True)
+            os.chmod(self.tempDir, 0700)
         except Exception, msg:
             raise SegmentTemplateError(msg)
 

@@ -175,8 +175,8 @@ class PgControlData(Command):
 
 class PgBaseBackup(Command):
     def __init__(self, pgdata, host, port, replication_slot_name=None, excludePaths=[], ctxt=LOCAL, remoteHost=None, forceoverwrite=False, target_gp_dbid=0,
-                 ):
-        cmd_tokens = ['pg_basebackup', '-R', '-c', 'fast']
+                 recovery_mode=True):
+        cmd_tokens = ['pg_basebackup', '-c', 'fast']
         cmd_tokens.append('-D')
         cmd_tokens.append(pgdata)
         cmd_tokens.append('-h')
@@ -187,6 +187,9 @@ class PgBaseBackup(Command):
 
         if forceoverwrite:
             cmd_tokens.append('--force-overwrite')
+
+        if recovery_mode:
+            cmd_tokens.append('-R')
 
         # This is needed to handle Greenplum tablespaces
         cmd_tokens.append('--target-gp-dbid')
