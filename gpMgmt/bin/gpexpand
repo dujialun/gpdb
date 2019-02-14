@@ -1805,8 +1805,8 @@ class ExpandTable():
         insertSQL = """INSERT INTO gpexpand.status_detail
                             VALUES ('%s','%s',%s,
                                     '%s',%d,'%s','%s','%s',%d)
-                    """ % (self.dbname, self.fq_name.replace("\'", "\'\'"), self.table_oid,
-                           self.root_partition_name,
+                    """ % (self.dbname.replace("'", "''"), self.fq_name.replace("'", "''"), self.table_oid,
+                           self.root_partition_name.replace("'", "''"),
                            self.rank, self.status,
                            self.expansion_started, self.expansion_finished,
                            self.source_bytes)
@@ -1828,7 +1828,7 @@ class ExpandTable():
                       source_bytes = %d
                   WHERE dbname = '%s'
                         AND table_oid = %s """ % (start_status, start_time,
-                                                  src_bytes, self.dbname,
+                                                  src_bytes, self.dbname.replace("'", "''"),
                                                   self.table_oid)
 
         logger.debug("Mark Started: " + sql.decode('utf-8'))
@@ -1840,7 +1840,7 @@ class ExpandTable():
                  SET status = '%s', expansion_started=NULL, expansion_finished=NULL
                  WHERE dbname = '%s'
                  AND table_oid = %s """ % (undone_status,
-                                           self.dbname, self.table_oid)
+                                           self.dbname.replace("'", "''"), self.table_oid)
 
         logger.debug('Resetting detailed_status: %s' % sql.decode('utf-8'))
         dbconn.execSQL(status_conn, sql)
@@ -1879,7 +1879,7 @@ class ExpandTable():
                   SET status = '%s', expansion_started='%s', expansion_finished='%s'
                   WHERE dbname = '%s'
                   AND table_oid = %s """ % (done_status, start_time, finish_time,
-                                            self.dbname, self.table_oid)
+                                            self.dbname.replace("'", "''"), self.table_oid)
         logger.debug(sql.decode('utf-8'))
         dbconn.execSQL(status_conn, sql)
         status_conn.commit()
@@ -1889,7 +1889,7 @@ class ExpandTable():
                   SET status = '%s', expansion_finished='%s'
                   WHERE dbname = '%s'
                   AND table_oid = %s """ % (does_not_exist_status, finish_time,
-                                            self.dbname, self.table_oid)
+                                            self.dbname.replace("'", "''"), self.table_oid)
         logger.debug(sql.decode('utf-8'))
         dbconn.execSQL(status_conn, sql)
         status_conn.commit()
