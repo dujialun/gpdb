@@ -1446,11 +1446,14 @@ Set PGDATABASE or use the -D option to specify the correct database to use.""" %
 
         src_bytes_str = "0" if self.options.simple_progress else "pg_relation_size(quote_ident(n.nspname) || '.' || quote_ident(c.relname))"
         sql = """SELECT
+    current_database(),
     quote_ident(n.nspname) || '.' || quote_ident(c.relname) as fq_name,
     c.oid as tableoid,
-    now() as last_updated,
-    %s,
-    NULL as root_partition_name
+    NULL as root_partition_name,
+    '%s' as undone_status,
+    NULL as expansion_started,
+    NULL as expansion_finished,
+    %s as source_bytes
 FROM
             pg_class c
     JOIN pg_namespace n ON (c.relnamespace=n.oid)
@@ -1462,44 +1465,33 @@ WHERE
     AND pr.parchildrelid is NULL
     AND n.nspname != 'gpexpand'
     AND n.nspname != 'pg_bitmapindex'
-    AND c.relstorage != 'x';
+    AND c.relstorage != 'x'
 
-                  """ % (src_bytes_str)
+                  """ % (undone_status, src_bytes_str)
         self.logger.debug(sql)
         table_conn = self.connect_database(dbname)
-        curs = dbconn.execSQL(table_conn, sql)
-        rows = curs.fetchall()
-        try:
-            sql_file = os.path.abspath('./status_detail.dat')
-            self.logger.debug('status_detail data file: %s' % sql_file)
-            fp = open(sql_file, 'w')
-            for row in rows:
-                fqname = row[0]
-                table_oid = row[1]
-                rel_bytes = int(row[3])
-                root_partition_name = row[4]
-                full_name = '%s.%s' % (dbname, fqname)
 
-                fp.write("""%s\t%s\t%s\t%s\t%s\tNULL\tNULL\t%d\n""" % (
-                    dbname, fqname, table_oid,
-                    root_partition_name, undone_status, rel_bytes))
+        try:
+            data_file = os.path.abspath('./status_detail.dat')
+            self.logger.debug('status_detail data file: %s' % data_file)
+            copySQL = """COPY (%s) TO '%s'""" % (sql, data_file)
+
+            self.logger.debug(copySQL)
+            dbconn.execSQL(table_conn, copySQL)
+            table_conn.commit()
+            table_conn.close()
         except Exception, e:
             raise ExpansionError(e)
-        finally:
-            if fp: fp.close()
 
         try:
-            copySQL = """COPY gpexpand.status_detail FROM '%s' NULL AS 'NULL'""" % (sql_file)
+            copySQL = """COPY gpexpand.status_detail FROM '%s'""" % (data_file)
 
             self.logger.debug(copySQL)
             dbconn.execSQL(self.conn, copySQL)
         except Exception, e:
             raise ExpansionError(e)
         finally:
-            os.unlink(sql_file)
-
-        table_conn.commit()
-        table_conn.close()
+            os.unlink(data_file)
 
     def _populate_partitioned_tables(self, dbname):
         """
