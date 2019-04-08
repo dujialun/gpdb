@@ -111,6 +111,8 @@ int32 gp_subtrans_warn_limit = 16777216; /* 16 million */
  */
 bool		seqXlogWrite;
 
+extern bool	shutdown_2pc;
+
 /*
  *	transaction states - transaction state from server perspective
  */
@@ -2633,7 +2635,8 @@ CommitTransaction(void)
 	/*
 	 * Prepare all QE.
 	 */
-	prepareDtxTransaction();
+	//if (!shutdown_2pc)
+		prepareDtxTransaction();
 
 #ifdef FAULT_INJECTOR
 	if (isPreparedDtxTransaction())
@@ -2685,7 +2688,7 @@ CommitTransaction(void)
 	 * Note that in GPDB, ProcArrayEndTransaction does *not* clear the PGPROC
 	 * entry, if it sets *needNotifyCommittedDtxTransaction!
 	 */
-	if (needNotifyCommittedDtxTransaction)
+	if (needNotifyCommittedDtxTransaction/* && !shutdown_2pc*/)
 	{
 		/*
 		 * Do 2nd phase of commit to all QE. NOTE: we can't process

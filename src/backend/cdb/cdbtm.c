@@ -54,6 +54,8 @@
 
 extern bool Test_print_direct_dispatch_info;
 
+extern bool shutdown_2pc;
+
 #define DTX_PHASE2_SLEEP_TIME_BETWEEN_RETRIES_MSECS 100
 
 volatile DistributedTransactionTimeStamp *shmDistribTimeStamp;
@@ -466,10 +468,15 @@ doPrepareTransaction(void)
 	elog(DTM_DEBUG5, "doPrepareTransaction moved to state = %s", DtxStateToString(currentGxact->state));
 
 	Assert(currentGxact->twophaseSegments != NIL);
-	succeeded = doDispatchDtxProtocolCommand(DTX_PROTOCOL_COMMAND_PREPARE, /* flags */ 0,
-											 currentGxact->gid, currentGxact->gxid,
-											 &currentGxact->badPrepareGangs, /* raiseError */ true,
-											 currentGxact->twophaseSegments, NULL, 0);
+	if (shutdown_2pc)
+		succeeded = true;
+	else
+	{
+		succeeded = doDispatchDtxProtocolCommand(DTX_PROTOCOL_COMMAND_PREPARE, /* flags */ 0,
+												 currentGxact->gid, currentGxact->gxid,
+												 &currentGxact->badPrepareGangs, /* raiseError */ true,
+												 currentGxact->twophaseSegments, NULL, 0);
+	}
 
 	/*
 	 * Now we've cleaned up our dispatched statement, cancels are allowed
@@ -581,10 +588,15 @@ doNotifyingCommitPrepared(void)
 	Assert(currentGxact->twophaseSegments != NIL);
 	PG_TRY();
 	{
-		succeeded = doDispatchDtxProtocolCommand(DTX_PROTOCOL_COMMAND_COMMIT_PREPARED, /* flags */ 0,
-												 currentGxact->gid, currentGxact->gxid,
-												 &badGangs, /* raiseError */ true,
-												 currentGxact->twophaseSegments, NULL, 0);
+		if (shutdown_2pc)
+			succeeded = true;
+		else
+		{
+			succeeded = doDispatchDtxProtocolCommand(DTX_PROTOCOL_COMMAND_COMMIT_PREPARED, /* flags */ 0,
+													 currentGxact->gid, currentGxact->gxid,
+													 &badGangs, /* raiseError */ true,
+													 currentGxact->twophaseSegments, NULL, 0);
+		}
 	}
 	PG_CATCH();
 	{
@@ -1940,8 +1952,8 @@ finishDistributedTransactionContext(char *debugCaller, bool aborted)
 		(currentGxact->state != DTX_STATE_RETRY_COMMIT_PREPARED &&
 		 currentGxact->state != DTX_STATE_RETRY_ABORT_PREPARED))
 	{
-		elog(FATAL, "Expected currentGxact to be NULL at this point.  Found gid =%s, gxid = %u (state = %s, caller = %s)",
-			 currentGxact->gid, currentGxact->gxid, DtxStateToString(currentGxact->state), debugCaller);
+		//elog(FATAL, "Expected currentGxact to be NULL at this point.  Found gid =%s, gxid = %u (state = %s, caller = %s)",
+		//	 currentGxact->gid, currentGxact->gxid, DtxStateToString(currentGxact->state), debugCaller);
 	}
 
 	gxid = getDistributedTransactionId();
@@ -1996,7 +2008,7 @@ sendDtxExplicitBegin(void)
 	rememberDtxExplicitBegin();
 
 	dtmPreCommand("sendDtxExplicitBegin", "(none)", NULL,
-				   /* is two-phase */ true, /* withSnapshot */ true, /* inCursor */ false);
+				   /* is two-phase */ /*!shutdown_2pc*/true, /* withSnapshot */ true, /* inCursor */ false);
 
 	/*
 	 * Be explicit about both the isolation level and the access mode since in

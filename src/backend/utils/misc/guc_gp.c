@@ -399,6 +399,7 @@ bool		optimizer_cte_inlining;
 bool		optimizer_enable_space_pruning;
 bool		optimizer_enable_associativity;
 bool		optimizer_enable_eageragg;
+bool		shutdown_2pc;
 
 /* Analyze related GUCs for Optimizer */
 bool		optimizer_analyze_root_partition;
@@ -2950,6 +2951,16 @@ struct config_bool ConfigureNamesBool_gp[] =
 			GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE
 		},
 		&optimizer_enable_eageragg,
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"shutdown_2pc", PGC_USERSET, UNGROUPED,
+			gettext_noop("Shutdown 2pc"),
+			NULL
+		},
+		&shutdown_2pc,
 		false,
 		NULL, NULL, NULL
 	},
