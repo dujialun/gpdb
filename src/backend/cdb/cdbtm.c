@@ -976,6 +976,12 @@ prepareDtxTransaction(void)
 		return;
 	}
 
+	if (!IsTransactionQELog())
+    {
+        clearAndResetGxact();
+        return;
+    }
+
 	elog(DTM_DEBUG5,
 		 "prepareDtxTransaction called with state = %s",
 		 DtxStateToString(currentGxact->state));
